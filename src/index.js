@@ -1,11 +1,11 @@
 import { createServer } from 'http'
 import { readFile } from 'fs/promises'
 import escapeHTML from 'escape-html'
-import path, {dirname} from 'path'
-import { fileURLToPath } from 'url';
+import path, { dirname } from 'path'
+import { fileURLToPath } from 'url'
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 const server = await createServer(async (req, res) => {
     const author = 'Evgeny Afanasyev'
@@ -15,27 +15,29 @@ const server = await createServer(async (req, res) => {
     )
     res.setHeader('Content-Type', 'text/html')
 
-    const htmlFragment = `
+    const htmlFragment = (
         <html lang="en">
             <head>
                 <title>My blog</title>
-            </head> 
+            </head>
             <body>
                 <nav>
                     <a href="/">Home</a>
-                    <hr/>
+                    <hr />
                 </nav>
-                <article>
-                    ${escapeHTML(postContent)}
-                </article>
+                <article>${escapeHTML(postContent)}</article>
                 <footer>
-                    <hr/>
-                     <p>
-                        <i>(c) ${escapeHTML(author)}, ${new Date().getFullYear()}</i>
-                     </p>   
+                    <hr />
+                    <p>
+                        <i>
+                            (c) ${escapeHTML(author)}, $
+                            {new Date().getFullYear()}
+                        </i>
+                    </p>
                 </footer>
             </body>
-        </html>`
+        </html>
+    )
 
     res.end(htmlFragment)
 })

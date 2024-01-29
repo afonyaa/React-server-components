@@ -5,7 +5,10 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile:babel": "babel src/index.js --out-file dist/index.js",
+    "compile:babel:watch": "babel src/index.js --watch --out-file dist/index.js",
+    "dev": "yarn run copy:serverData && yarn run compile:babel:watch & nodemon dist/index.js",
+    "copy:serverData": "cpx 'src/posts/**' 'dist/posts'"
   },
   "repository": {
     "type": "git",
@@ -19,9 +22,15 @@
   },
   "homepage": "https://github.com/afonyaa/React-server-components#readme",
   "devDependencies": {
+    "@babel/cli": "^7.23.9",
+    "@babel/core": "^7.23.9",
+    "@babel/plugin-transform-react-jsx": "^7.23.4",
+    "cpx": "^1.5.0",
+    "nodemon": "^3.0.3",
     "prettier": "^3.2.4"
   },
   "dependencies": {
-    "escape-html": "^1.0.3"
+    "escape-html": "^1.0.3",
+    "react": "^18.2.0"
   }
 }
