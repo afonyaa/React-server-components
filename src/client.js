@@ -1,13 +1,34 @@
 let currentPathName = window.location.pathname
 
+const parseJSX = (key, value) => {
+    if (value === '$RE') {
+        return Symbol.for('react.element')
+    } else if (typeof value === 'string' && value.startsWith('$$')) {
+        return value.slice(1)
+    } else {
+        return value
+    }
+}
+const getInitialClientJSX = () => {
+    return JSON.parse(window.__INITIAL_CLIENT_JSX_STRING__, parseJSX)
+}
+
+console.log(getInitialClientJSX())
+
+const root = ReactDOM.hydrateRoot(document, getInitialClientJSX())
+
+const fetchClientJSX = async (pathname) => {
+    const response = await fetch(pathname + '?jsx')
+    const clientJsxString = await response.text()
+    return JSON.parse(clientJsxString, parseJSX)
+}
+
 const navigate = async (pathName) => {
     currentPathName = pathName
-    const response = await fetch(pathName)
-    const receivedHTML = await response.text()
-
-    const bodyStartIndex = receivedHTML.indexOf('<body>') + '<body>'.length
-    const bodyEndIndex = receivedHTML.lastIndexOf('</body>')
-    document.body.innerHTML = receivedHTML.slice(bodyStartIndex, bodyEndIndex)
+    const clientJsx = await fetchClientJSX(pathName)
+    if (pathName === currentPathName) {
+        root.render(clientJsx)
+    }
 }
 
 window.addEventListener(

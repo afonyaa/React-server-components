@@ -1,13 +1,24 @@
 import { createServer } from 'http'
-import { readFile, readdir } from 'fs/promises'
+import { readdir, readFile } from 'fs/promises'
 import escapeHTML from 'escape-html'
 import path, { dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { jsx } from 'react/jsx-runtime'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-/** JSX to HTML */
+const stringifyJSX = (key, value) => {
+    if (value === Symbol.for('react.element')) {
+        return '$RE'
+    } else if (typeof value === 'string' && value.startsWith('$')) {
+        return '$' + value
+    } else {
+        return value
+    }
+}
+
+/** JSX to HTML  can be replaced with renderToString from react-dom/server */
 const renderJSXToHTML = async (jsx) => {
     if (typeof jsx === 'string' || typeof jsx === 'number') {
         return escapeHTML(jsx)
@@ -52,11 +63,49 @@ const renderJSXToHTML = async (jsx) => {
     }
 }
 
+const renderJSXToClientJSX = async (serverJSX) => {
+    if (
+        typeof serverJSX === 'string' ||
+        typeof serverJSX === 'number' ||
+        typeof serverJSX === 'boolean' ||
+        serverJSX == null
+    ) {
+        return serverJSX
+    } else if (Array.isArray(serverJSX)) {
+        return Promise.all(
+            serverJSX.map((child) => renderJSXToClientJSX(child))
+        )
+    } else if (serverJSX != null && typeof serverJSX === 'object') {
+        if (serverJSX.$$typeof === Symbol.for('react.element')) {
+            if (typeof serverJSX.type === 'string') {
+                return {
+                    ...serverJSX,
+                    props: await renderJSXToClientJSX(serverJSX.props),
+                }
+            } else if (typeof serverJSX.type === 'function') {
+                const Component = serverJSX.type
+                const props = serverJSX.props
+                const returnedJSX = await Component(props)
+                return renderJSXToClientJSX(returnedJSX)
+            }
+        } else {
+            return Object.fromEntries(
+                await Promise.all(
+                    Object.entries(serverJSX).map(async ([propName, value]) => [
+                        propName,
+                        await renderJSXToClientJSX(value),
+                    ])
+                )
+            )
+        }
+    }
+}
+
 /** Components */
 const BlogLayout = ({ children }) => {
     const author = 'Evgeny Afanasyev'
     return (
-        <html lang="en">
+        <html>
             <head>
                 <title>My blog</title>
             </head>
@@ -79,9 +128,7 @@ const Footer = async ({ author }) => {
         <footer>
             <hr />
             <p>
-                <i>
-                    (c){author}, {new Date().getFullYear()}
-                </i>
+                <i>{author}</i>
             </p>
         </footer>
     )
@@ -145,11 +192,28 @@ const server = await createServer(async (req, res) => {
                 path.resolve(__dirname, `./client.js`),
                 'utf-8'
             )
-            res.setHeader('Content-Type', 'text/javascript')
+            res.setHeader('Content-Type', 'application/javascript')
             res.end(script)
+        } else if (url.searchParams.has('jsx')) {
+            url.searchParams.delete('jsx')
+            /** renderJSXToClientJSX*/
+            const clientJSX = await renderJSXToClientJSX(<Router url={url} />)
+            const clientJSXString = JSON.stringify(clientJSX, stringifyJSX)
+            res.setHeader('Content-Type', 'application/json')
+            res.end(clientJSXString)
         } else {
             let html = await renderJSXToHTML(<Router url={url} />)
-            html += `<script type="module" src="/client.js"></script>`
+
+            const clientJSX = await renderJSXToClientJSX(<Router url={url} />)
+            const clientJSXString = JSON.stringify(clientJSX, stringifyJSX)
+
+            html += `<script>window.__INITIAL_CLIENT_JSX_STRING__ = `
+            html += JSON.stringify(clientJSXString).replace(/</g, '\\u003c')
+            html += `</script>`
+
+            html += ` <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+                      <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script> 
+                      <script type="module" src="/client.js"></script>`
             res.setHeader('Content-Type', 'text/html')
             res.end(html)
         }
