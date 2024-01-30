@@ -64,6 +64,8 @@ const BlogLayout = ({ children }) => {
                 <nav>
                     <a href="/">Home</a>
                     <hr />
+                    <input />
+                    <hr />
                 </nav>
                 <main>{children}</main>
                 <Footer author={author} />
@@ -136,15 +138,24 @@ const Router = ({ url }) => {
 
 /** Server */
 const server = await createServer(async (req, res) => {
-    res.setHeader('Content-Type', 'text/html')
     try {
         const url = new URL(req.url, `http://${req.headers.host}`)
-
-        const html = await renderJSXToHTML(<Router url={url} />)
-        res.end(html)
-    } catch (e) {
-        console.error(e)
-        res.statusCode = e.statusCode ?? 500
+        if (url.pathname === '/client.js') {
+            const script = await readFile(
+                path.resolve(__dirname, `./client.js`),
+                'utf-8'
+            )
+            res.setHeader('Content-Type', 'text/javascript')
+            res.end(script)
+        } else {
+            let html = await renderJSXToHTML(<Router url={url} />)
+            html += `<script type="module" src="/client.js"></script>`
+            res.setHeader('Content-Type', 'text/html')
+            res.end(html)
+        }
+    } catch (err) {
+        console.error(err)
+        res.statusCode = err.statusCode ?? 500
         res.end()
     }
 })
