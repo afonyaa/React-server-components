@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
+/** JSX to HTML */
 const renderJSXToHTML = (jsx) => {
     if (typeof jsx === 'string' || typeof jsx === 'number') {
         return escapeHTML(jsx)
@@ -16,38 +17,55 @@ const renderJSXToHTML = (jsx) => {
         return jsx.map((child) => renderJSXToHTML(child)).join('')
     } else if (typeof jsx === 'object') {
         if (jsx.$$typeof === Symbol.for('react.element')) {
-            let element = `<${jsx.type}`
-            for (const propName in jsx.props) {
-                if (jsx.hasOwnProperty(propName) && propName !== 'children') {
-                    element += ' '
-                    element += propName
-                    element += '='
-                    element += escapeHTML(jsx.props[propName])
+            if (typeof jsx.type === 'string') {
+                let element = `<${jsx.type}`
+                for (const propName in jsx.props) {
+                    if (
+                        jsx.hasOwnProperty(propName) &&
+                        propName !== 'children'
+                    ) {
+                        element += ' '
+                        element += propName
+                        element += '='
+                        element += escapeHTML(jsx.props[propName])
+                    }
                 }
+                if (jsx.props.children) {
+                    element += '>'
+                    element += renderJSXToHTML(jsx.props.children)
+                    element += `</${jsx.type}>`
+                } else {
+                    element += '/>'
+                }
+                return element
+            } else if (typeof jsx.type === 'function') {
+                const Component = jsx.type
+                const returnedJSX = Component(jsx.props)
+                return renderJSXToHTML(returnedJSX)
             }
-            if (jsx.props.children) {
-                element += '>'
-                element += renderJSXToHTML(jsx.props.children)
-                element += `</${jsx.type}>`
-            } else {
-                element += '/>'
-            }
-            return element
         } else throw new Error('Cannot render an object.')
     } else {
         throw new Error('Not implemented.')
     }
 }
 
-const server = await createServer(async (req, res) => {
-    const author = 'Evgeny Afanasyev'
-    const postContent = await readFile(
-        path.resolve(__dirname, './posts/hello-world.txt'),
-        'utf-8'
-    )
-    res.setHeader('Content-Type', 'text/html')
+/** Components */
 
-    const jsxFragment = (
+const Footer = ({ author }) => {
+    return (
+        <footer>
+            <hr />
+            <p>
+                <i>
+                    (c){author}, {new Date().getFullYear()}
+                </i>
+            </p>
+        </footer>
+    )
+}
+
+const BlogPostPage = ({ postContent, author }) => {
+    return (
         <html lang="en">
             <head>
                 <title>My blog</title>
@@ -58,18 +76,26 @@ const server = await createServer(async (req, res) => {
                     <hr />
                 </nav>
                 <article>{postContent}</article>
-                <footer>
-                    <hr />
-                    <p>
-                        <i>
-                            (c){author}, {new Date().getFullYear()}
-                        </i>
-                    </p>
-                </footer>
+                <Footer author={author} />
             </body>
         </html>
     )
-    res.end(renderJSXToHTML(jsxFragment))
+}
+
+/** Server */
+const server = await createServer(async (req, res) => {
+    const author = 'Evgeny Afanasyev'
+    const postContent = await readFile(
+        path.resolve(__dirname, './posts/hello-world.txt'),
+        'utf-8'
+    )
+    res.setHeader('Content-Type', 'text/html')
+
+    res.end(
+        renderJSXToHTML(
+            <BlogPostPage author={author} postContent={postContent} />
+        )
+    )
 })
 
 server.listen(8000, () => {

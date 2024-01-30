@@ -1,0 +1,85 @@
+{
+    "type": "html",
+    "key": null,
+    "ref": null,
+    "props": {
+        "lang": "en",
+        "children": [
+            {
+                "type": "head",
+                "key": null,
+                "ref": null,
+                "props": {
+                    "children": {
+                        "type": "title",
+                        "key": null,
+                        "ref": null,
+                        "props": { "children": "My blog" },
+                        "_owner": null,
+                        "_store": {}
+                    }
+                },
+                "_owner": null,
+                "_store": {}
+            },
+            {
+                "type": "body",
+                "key": null,
+                "ref": null,
+                "props": {
+                    "children": [
+                        {
+                            "type": "nav",
+                            "key": null,
+                            "ref": null,
+                            "props": {
+                                "children": [
+                                    {
+                                        "type": "a",
+                                        "key": null,
+                                        "ref": null,
+                                        "props": {
+                                            "href": "/",
+                                            "children": "Home"
+                                        },
+                                        "_owner": null,
+                                        "_store": {}
+                                    },
+                                    {
+                                        "type": "hr",
+                                        "key": null,
+                                        "ref": null,
+                                        "props": {},
+                                        "_owner": null,
+                                        "_store": {}
+                                    }
+                                ]
+                            },
+                            "_owner": null,
+                            "_store": {}
+                        },
+                        {
+                            "type": "article",
+                            "key": null,
+                            "ref": null,
+                            "props": { "children": "hello world" },
+                            "_owner": null,
+                            "_store": {}
+                        },
+                        {
+                            "key": null,
+                            "ref": null,
+                            "props": {},
+                            "_owner": null,
+                            "_store": {}
+                        }
+                    ]
+                },
+                "_owner": null,
+                "_store": {}
+            }
+        ]
+    },
+    "_owner": null,
+    "_store": {}
+}
