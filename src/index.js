@@ -25,13 +25,16 @@ const renderJSXToHTML = (jsx) => {
                     element += escapeHTML(jsx.props[propName])
                 }
             }
-            element += '>'
-            element += renderJSXToHTML(jsx.props.children)
-            element += `</${jsx.type}>`
+            if (jsx.props.children) {
+                element += '>'
+                element += renderJSXToHTML(jsx.props.children)
+                element += `</${jsx.type}>`
+            } else {
+                element += '/>'
+            }
             return element
         } else throw new Error('Cannot render an object.')
     } else {
-        console.log(typeof jsx, JSON.stringify(jsx))
         throw new Error('Not implemented.')
     }
 }
@@ -52,11 +55,11 @@ const server = await createServer(async (req, res) => {
             <body>
                 <nav>
                     <a href="/">Home</a>
-                    {/*<hr />*/}
+                    <hr />
                 </nav>
                 <article>{postContent}</article>
                 <footer>
-                    {/*<hr />*/}
+                    <hr />
                     <p>
                         <i>
                             (c){author}, {new Date().getFullYear()}
