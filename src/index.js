@@ -7,6 +7,35 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
+const renderJSXToHTML = (jsx) => {
+    if (typeof jsx === 'string' || typeof jsx === 'number') {
+        return escapeHTML(jsx)
+    } else if (typeof jsx === 'boolean' || jsx === null) {
+        return ''
+    } else if (Array.isArray(jsx)) {
+        return jsx.map((child) => renderJSXToHTML(child)).join('')
+    } else if (typeof jsx === 'object') {
+        if (jsx.$$typeof === Symbol.for('react.element')) {
+            let element = `<${jsx.type}`
+            for (const propName in jsx.props) {
+                if (jsx.hasOwnProperty(propName) && propName !== 'children') {
+                    element += ' '
+                    element += propName
+                    element += '='
+                    element += escapeHTML(jsx.props[propName])
+                }
+            }
+            element += '>'
+            element += renderJSXToHTML(jsx.props.children)
+            element += `</${jsx.type}>`
+            return element
+        } else throw new Error('Cannot render an object.')
+    } else {
+        console.log(typeof jsx, JSON.stringify(jsx))
+        throw new Error('Not implemented.')
+    }
+}
+
 const server = await createServer(async (req, res) => {
     const author = 'Evgeny Afanasyev'
     const postContent = await readFile(
@@ -15,7 +44,7 @@ const server = await createServer(async (req, res) => {
     )
     res.setHeader('Content-Type', 'text/html')
 
-    const htmlFragment = (
+    const jsxFragment = (
         <html lang="en">
             <head>
                 <title>My blog</title>
@@ -23,23 +52,21 @@ const server = await createServer(async (req, res) => {
             <body>
                 <nav>
                     <a href="/">Home</a>
-                    <hr />
+                    {/*<hr />*/}
                 </nav>
-                <article>${escapeHTML(postContent)}</article>
+                <article>{postContent}</article>
                 <footer>
-                    <hr />
+                    {/*<hr />*/}
                     <p>
                         <i>
-                            (c) ${escapeHTML(author)}, $
-                            {new Date().getFullYear()}
+                            (c){author}, {new Date().getFullYear()}
                         </i>
                     </p>
                 </footer>
             </body>
         </html>
     )
-
-    res.end(htmlFragment)
+    res.end(renderJSXToHTML(jsxFragment))
 })
 
 server.listen(8000, () => {
