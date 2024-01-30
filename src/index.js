@@ -8,13 +8,16 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 /** JSX to HTML */
-const renderJSXToHTML = (jsx) => {
+const renderJSXToHTML = async (jsx) => {
     if (typeof jsx === 'string' || typeof jsx === 'number') {
         return escapeHTML(jsx)
     } else if (typeof jsx === 'boolean' || jsx === null) {
         return ''
     } else if (Array.isArray(jsx)) {
-        return jsx.map((child) => renderJSXToHTML(child)).join('')
+        const childHtmls = await Promise.all(
+            jsx.map((child) => renderJSXToHTML(child))
+        )
+        return childHtmls.join('')
     } else if (typeof jsx === 'object') {
         if (jsx.$$typeof === Symbol.for('react.element')) {
             if (typeof jsx.type === 'string') {
@@ -32,7 +35,7 @@ const renderJSXToHTML = (jsx) => {
                 }
                 if (jsx.props.children) {
                     element += '>'
-                    element += renderJSXToHTML(jsx.props.children)
+                    element += await renderJSXToHTML(jsx.props.children)
                     element += `</${jsx.type}>`
                 } else {
                     element += '/>'
@@ -40,7 +43,7 @@ const renderJSXToHTML = (jsx) => {
                 return element
             } else if (typeof jsx.type === 'function') {
                 const Component = jsx.type
-                const returnedJSX = Component(jsx.props)
+                const returnedJSX = await Component(jsx.props)
                 return renderJSXToHTML(returnedJSX)
             }
         } else throw new Error('Cannot render an object.')
@@ -69,7 +72,7 @@ const BlogLayout = ({ children }) => {
     )
 }
 
-const Footer = ({ author }) => {
+const Footer = async ({ author }) => {
     return (
         <footer>
             <hr />
@@ -82,71 +85,53 @@ const Footer = ({ author }) => {
     )
 }
 
-const BlogPostPage = ({ postContent, postSlug }) => {
-    return (
-        <section>
-            <h2>
-                <a href={'/' + postSlug}>{postSlug}</a>
-            </h2>
-            <article>{postContent}</article>
-        </section>
-    )
+const BlogPostPage = ({ postSlug }) => {
+    return <Post slug={postSlug} />
 }
 
-const BlogPostIndexPage = ({ postContents, postSlugs }) => {
+const BlogIndexPage = async () => {
+    const postFiles = await readdir(path.resolve(__dirname, `./posts/`))
+    const postSlugs = postFiles.map((file) =>
+        file.slice(0, file.lastIndexOf('.'))
+    )
+
     return (
         <section>
             <h1>Welcome to my blog</h1>
             <div>
-                {postSlugs.map((postSlug, index) => (
-                    <section>
-                        <h2>
-                            <a href={'/' + postSlug}>{postSlug}</a>
-                        </h2>
-                        <article>{postContents[index]}</article>
-                    </section>
+                {postSlugs.map((postSlug) => (
+                    <Post slug={postSlug} key={postSlug} />
                 ))}
             </div>
         </section>
     )
 }
 
-const matchRoute = async (url) => {
+const Post = async ({ slug }) => {
+    const postContent = await readFile(
+        path.resolve(__dirname, `./posts/${slug}.txt`),
+        'utf-8'
+    )
+
+    return (
+        <section>
+            <h2>
+                <a href={'/' + slug}>{slug}</a>
+            </h2>
+            <article>{postContent}</article>
+        </section>
+    )
+}
+
+const Router = ({ url }) => {
+    let page
     if (url.pathname === '/') {
-        const postFiles = await readdir(path.resolve(__dirname, `./posts/`))
-        const postSlugs = postFiles.map((file) =>
-            file.slice(0, file.lastIndexOf('.'))
-        )
-        const postContents = await Promise.all(
-            postSlugs.map((postSlug) => {
-                readFile(
-                    path.resolve(__dirname, `./posts/${postSlug}.txt`),
-                    'utf-8'
-                )
-            })
-        )
-        return (
-            <BlogPostIndexPage
-                postSlugs={postSlugs}
-                postContents={postContents}
-            />
-        )
+        page = <BlogIndexPage />
     } else {
         const postSlug = url.pathname.slice(1)
-        try {
-            const postContent = await readFile(
-                path.resolve(__dirname, `./posts/${postSlug}.txt`),
-                'utf-8'
-            )
-            return (
-                <BlogPostPage postSlug={postSlug} postContent={postContent} />
-            )
-        } catch (cause) {
-            const notFound = new Error(cause)
-            notFound.statusCode = 404
-            throw notFound
-        }
+        page = <BlogPostPage postSlug={postSlug} />
     }
+    return <BlogLayout>{page}</BlogLayout>
 }
 
 /** Server */
@@ -154,8 +139,9 @@ const server = await createServer(async (req, res) => {
     res.setHeader('Content-Type', 'text/html')
     try {
         const url = new URL(req.url, `http://${req.headers.host}`)
-        const page = await matchRoute(url)
-        res.end(renderJSXToHTML(<BlogLayout>{page}</BlogLayout>))
+
+        const html = await renderJSXToHTML(<Router url={url} />)
+        res.end(html)
     } catch (e) {
         console.error(e)
         res.statusCode = e.statusCode ?? 500
