@@ -21,7 +21,7 @@ const renderJSXToHTML = (jsx) => {
                 let element = `<${jsx.type}`
                 for (const propName in jsx.props) {
                     if (
-                        jsx.hasOwnProperty(propName) &&
+                        jsx.props.hasOwnProperty(propName) &&
                         propName !== 'children'
                     ) {
                         element += ' '
