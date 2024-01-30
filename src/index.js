@@ -1,5 +1,5 @@
 import { createServer } from 'http'
-import { readFile } from 'fs/promises'
+import { readFile, readdir } from 'fs/promises'
 import escapeHTML from 'escape-html'
 import path, { dirname } from 'path'
 import { fileURLToPath } from 'url'
@@ -50,6 +50,24 @@ const renderJSXToHTML = (jsx) => {
 }
 
 /** Components */
+const BlogLayout = ({ children }) => {
+    const author = 'Evgeny Afanasyev'
+    return (
+        <html lang="en">
+            <head>
+                <title>My blog</title>
+            </head>
+            <body>
+                <nav>
+                    <a href="/">Home</a>
+                    <hr />
+                </nav>
+                <main>{children}</main>
+                <Footer author={author} />
+            </body>
+        </html>
+    )
+}
 
 const Footer = ({ author }) => {
     return (
@@ -64,38 +82,85 @@ const Footer = ({ author }) => {
     )
 }
 
-const BlogPostPage = ({ postContent, author }) => {
+const BlogPostPage = ({ postContent, postSlug }) => {
     return (
-        <html lang="en">
-            <head>
-                <title>My blog</title>
-            </head>
-            <body>
-                <nav>
-                    <a href="/">Home</a>
-                    <hr />
-                </nav>
-                <article>{postContent}</article>
-                <Footer author={author} />
-            </body>
-        </html>
+        <section>
+            <h2>
+                <a href={'/' + postSlug}>{postSlug}</a>
+            </h2>
+            <article>{postContent}</article>
+        </section>
     )
+}
+
+const BlogPostIndexPage = ({ postContents, postSlugs }) => {
+    return (
+        <section>
+            <h1>Welcome to my blog</h1>
+            <div>
+                {postSlugs.map((postSlug, index) => (
+                    <section>
+                        <h2>
+                            <a href={'/' + postSlug}>{postSlug}</a>
+                        </h2>
+                        <article>{postContents[index]}</article>
+                    </section>
+                ))}
+            </div>
+        </section>
+    )
+}
+
+const matchRoute = async (url) => {
+    if (url.pathname === '/') {
+        const postFiles = await readdir(path.resolve(__dirname, `./posts/`))
+        const postSlugs = postFiles.map((file) =>
+            file.slice(0, file.lastIndexOf('.'))
+        )
+        const postContents = await Promise.all(
+            postSlugs.map((postSlug) => {
+                readFile(
+                    path.resolve(__dirname, `./posts/${postSlug}.txt`),
+                    'utf-8'
+                )
+            })
+        )
+        return (
+            <BlogPostIndexPage
+                postSlugs={postSlugs}
+                postContents={postContents}
+            />
+        )
+    } else {
+        const postSlug = url.pathname.slice(1)
+        try {
+            const postContent = await readFile(
+                path.resolve(__dirname, `./posts/${postSlug}.txt`),
+                'utf-8'
+            )
+            return (
+                <BlogPostPage postSlug={postSlug} postContent={postContent} />
+            )
+        } catch (cause) {
+            const notFound = new Error(cause)
+            notFound.statusCode = 404
+            throw notFound
+        }
+    }
 }
 
 /** Server */
 const server = await createServer(async (req, res) => {
-    const author = 'Evgeny Afanasyev'
-    const postContent = await readFile(
-        path.resolve(__dirname, './posts/hello-world.txt'),
-        'utf-8'
-    )
     res.setHeader('Content-Type', 'text/html')
-
-    res.end(
-        renderJSXToHTML(
-            <BlogPostPage author={author} postContent={postContent} />
-        )
-    )
+    try {
+        const url = new URL(req.url, `http://${req.headers.host}`)
+        const page = await matchRoute(url)
+        res.end(renderJSXToHTML(<BlogLayout>{page}</BlogLayout>))
+    } catch (e) {
+        console.error(e)
+        res.statusCode = e.statusCode ?? 500
+        res.end()
+    }
 })
 
 server.listen(8000, () => {
